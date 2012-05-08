@@ -1,6 +1,8 @@
 # yo, easy server-side tracking for Google Analytics... hey!
 require "uri"
 require "net/http"
+require 'eventmachine'
+require 'em-http'
 require 'cgi'
 require File.dirname(__FILE__) + '/version'
 
@@ -304,20 +306,36 @@ module Gabba
       raise NoGoogleAnalyticsAccountError unless @utmac
       raise NoGoogleAnalyticsDomainError unless @utmhn
     end
-
-    # makes the tracking call to Google Analytics
+    
+    # this one is synchronous, not good
+    # # makes the tracking call to Google Analytics
+    # def hey(params)
+    #   query = params.map {|k,v| "#{k}=#{URI.escape(v.to_s, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))}" }.join('&')
+    # 
+    #   response = Net::HTTP.start(GOOGLE_HOST) do |http|
+    #     request = Net::HTTP::Get.new("#{BEACON_PATH}?#{query}")
+    #     request["User-Agent"] = URI.escape(user_agent)
+    #     request["Accept"] = "*/*"
+    #     http.request(request)
+    #   end
+    # 
+    #   raise GoogleAnalyticsNetworkError unless response.code == "200"
+    #   response
+    # end
+    
     def hey(params)
       query = params.map {|k,v| "#{k}=#{URI.escape(v.to_s, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))}" }.join('&')
+      
+      EventMachine.run {
+        http = EventMachine::HttpRequest.new("#{GOOGLE_HOST}#{BEACON_PATH}").get :query => query
+        http.callback {
+          p http.response_header.status
+          p http.response_header
+          p http.response
 
-      response = Net::HTTP.start(GOOGLE_HOST) do |http|
-        request = Net::HTTP::Get.new("#{BEACON_PATH}?#{query}")
-        request["User-Agent"] = URI.escape(user_agent)
-        request["Accept"] = "*/*"
-        http.request(request)
-      end
-
-      raise GoogleAnalyticsNetworkError unless response.code == "200"
-      response
+          EventMachine.stop
+        }
+      }
     end
 
     def random_id
