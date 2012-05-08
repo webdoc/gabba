@@ -1,6 +1,6 @@
 # yo, easy server-side tracking for Google Analytics... hey!
 require "uri"
-require "net/http"
+#require "net/http"
 require 'eventmachine'
 require 'em-http'
 require 'cgi'
@@ -323,16 +323,16 @@ module Gabba
     #   response
     # end
     
+    # makes the tracking call to Google Analytics
     def hey(params)
       query = params.map {|k,v| "#{k}=#{URI.escape(v.to_s, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))}" }.join('&')
-      
+      head = {
+        'Accept' => "*/*",
+        'User-Agent' =>  URI.escape(user_agent)
+      }
       EventMachine.run {
-        http = EventMachine::HttpRequest.new("#{GOOGLE_HOST}#{BEACON_PATH}").get :query => query
+        http = EventMachine::HttpRequest.new("http://#{GOOGLE_HOST}#{BEACON_PATH}").get :query => query, :head => head
         http.callback {
-          p http.response_header.status
-          p http.response_header
-          p http.response
-
           EventMachine.stop
         }
       }
